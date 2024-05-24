@@ -2,6 +2,10 @@
 #include "led_strip.h"
 #include "inttypes.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sdkconfig.h"
 
 #define RNG_DATA_REG 0x600260B0
 #define LOW_POWER_MANAGEMENT_BASE 0x60008000
@@ -21,10 +25,11 @@ static return_t init_RNG()
 #define MAX_LEDS 25
 
 bool g_leds_configured = false;
+bool g_test = false;
 
 static const char *TAG = "LED_CONFIG";
 
-led_strip_handle_t led_strip; // Wie kann i des anders Lösen?? kann ich die nicht in der funktion configure definieren???
+static led_strip_handle_t led_strip;
 
 uint8_t dice_number_pixel_indices[6][MAX_LEDS] = {
     {0, 0, 0, 0, 0,
@@ -58,11 +63,78 @@ uint8_t dice_number_pixel_indices[6][MAX_LEDS] = {
      0, 1, 0, 1, 0,
      0, 0, 0, 0, 0}};
 
+return_t set_led(uint8_t led, uint8_t r, uint8_t g, uint8_t b)
+{
+    uint32_t delay = 1000;
+
+    for (int i = 0; i < 6; i++)
+    {
+        led_strip_clear(led_strip);
+        for (int j = 0; j < 25; j++)
+        {
+            if (dice_number_pixel_indices[i][j])
+            {
+                led_strip_set_pixel(led_strip, j, r, g, b);
+            }
+            if (g_test == true)
+            {
+                led_strip_set_pixel(led_strip, 0, 0, 25, 0);
+                led_strip_refresh(led_strip);
+            }
+        }
+        led_strip_refresh(led_strip);
+        vTaskDelay(delay / portTICK_PERIOD_MS);
+    }
+
+    while (1)
+    {
+        uint8_t random_number = (*RNG_DATA_REG_p) % 6;
+        led_strip_clear(led_strip);
+        for (int j = 0; j < 25; j++)
+        {
+            if (dice_number_pixel_indices[random_number][j])
+            {
+                led_strip_set_pixel(led_strip, j, r, g, b);
+            }
+        }
+        led_strip_refresh(led_strip);
+        vTaskDelay(delay / portTICK_PERIOD_MS);
+    }
+
+    return success;
+}
+
+#define LEFT_BTN_GPIO 9
+#define RIGHT_BTN_GPIO 2
+
+static void left_btn_isr_handler()
+{
+    ESP_EARLY_LOGE(TAG, "\nISR\n");
+    g_test = true;
+    ESP_EARLY_LOGE(TAG, "\nISR Finished\n");
+}
+
+static void configure_left_button()
+{
+    gpio_config_t io_conf = {
+        .pin_bit_mask = 1 << LEFT_BTN_GPIO,
+        .intr_type = GPIO_INTR_NEGEDGE,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    };
+    gpio_config(&io_conf);
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(LEFT_BTN_GPIO, left_btn_isr_handler, NULL);
+}
+
 return_t init_dice()
 {
     if (!g_leds_configured)
     {
         init_RNG();
+        configure_left_button();
         g_leds_configured = true;
 
         // led_strip_handle_t led_strip;
@@ -90,40 +162,4 @@ return_t init_dice()
         ESP_LOGE(TAG, "LEDs already configured!");
         return already_configured;
     }
-}
-
-return_t set_led(uint8_t led, uint8_t r, uint8_t g, uint8_t b)
-{
-    uint32_t delay = 1000;
-
-    for (int i = 0; i < 6; i++)
-    {
-        led_strip_clear(led_strip);
-        for (int j = 0; j < 25; j++)
-        {
-            if (dice_number_pixel_indices[i][j])
-            {
-                led_strip_set_pixel(led_strip, j, r, g, b);
-            }
-        }
-        led_strip_refresh(led_strip);
-        vTaskDelay(delay / portTICK_PERIOD_MS);
-    }
-
-    while (1)
-    {
-        uint8_t random_number = (*RNG_DATA_REG_p) % 6;
-        led_strip_clear(led_strip);
-        for (int j = 0; j < 25; j++)
-        {
-            if (dice_number_pixel_indices[random_number][j])
-            {
-                led_strip_set_pixel(led_strip, j, r, g, b);
-            }
-        }
-        led_strip_refresh(led_strip);
-        vTaskDelay(delay / portTICK_PERIOD_MS);
-    }
-
-    return success;
 }
