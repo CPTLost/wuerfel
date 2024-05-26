@@ -1,14 +1,14 @@
 #include "led_dice.h"
 
 #include "led_strip.h"
-#include "inttypes.h"
+// #include "inttypes.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
-#include "return_type.h"
+// #include "return_type.h"
 #include "rng.h"
 #include "button.h"
 
@@ -34,7 +34,7 @@
 bool g_leds_configured = false;
 // bool g_test = false;
 
-static const char *TAG = "LED_CONFIG";
+// static const char *TAG = "LED_CONFIG";
 
 static led_strip_handle_t led_strip;
 
@@ -70,7 +70,7 @@ uint8_t dice_number_pixel_indices[6][MAX_LEDS] = {
      0, 1, 0, 1, 0,
      0, 0, 0, 0, 0}};
 
-return_t set_led(uint8_t led, uint8_t r, uint8_t g, uint8_t b) // Dice Funktion hier Implementieren!!!!!!!!!!!!!!!!
+return_t set_led() // Dice Funktion hier Implementieren!!!!!!!!!!!!!!!!
 {
     uint32_t delay = 1000;
 
@@ -81,7 +81,7 @@ return_t set_led(uint8_t led, uint8_t r, uint8_t g, uint8_t b) // Dice Funktion 
         {
             if (dice_number_pixel_indices[i][j])
             {
-                led_strip_set_pixel(led_strip, j, r, g, b);
+                led_strip_set_pixel(led_strip, j, 25, 25, 25);
             }
             if (g_roll_dice == true)
             {

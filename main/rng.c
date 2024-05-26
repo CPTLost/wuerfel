@@ -1,6 +1,8 @@
-#include <inttypes.h>
+#include "rng.h"
 
-#include "return_type.h"
+// #include <inttypes.h>
+
+// #include "return_type.h"
 
 #define RNG_DATA_REG 0x600260B0
 #define LOW_POWER_MANAGEMENT_BASE 0x60008000

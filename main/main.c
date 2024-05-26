@@ -8,6 +8,6 @@ void app_main(void)
     init_dice();
     while (1)
     {
-        set_led(0, 25, 25, 25);
+        set_led();
     }
 }
