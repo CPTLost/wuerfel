@@ -1,31 +1,24 @@
 #include "button.h"
 
-// #include <inttypes.h>
 #include <driver/gpio.h>
 #include "esp_log.h"
 
-// #include "return_type.h"
+static bool isr_installed = false;
 
-// #define LEFT_BTN_GPIO 9
-// #define RIGHT_BTN_GPIO 2
+void rolling_button_callback(void);
+void cheating_button_callback(void);
 
-static const char *TAG = "BUTTON";
-
-static void button_for_rolling_dice_isr_handler()
+void button_for_rolling_dice_isr_handler()
 {
-    ESP_EARLY_LOGE(TAG, "\nISR\n");
-    g_roll_dice = true;
-    ESP_EARLY_LOGE(TAG, "\nISR Finished\n");
+    rolling_button_callback();
 }
 
-static void button_for_cheating_isr_handler()
+void button_for_cheating_isr_handler()
 {
-    ESP_EARLY_LOGE(TAG, "\nISR: cheating\n");
-    g_cheat = true;
-    ESP_EARLY_LOGE(TAG, "\nISR: cheating Finished\n");
+    cheating_button_callback();
 }
 
-return_t configure_button_for_rolling_dice(uint8_t GPIO_BUTTON_PIN)
+return_t configure_button_for_led_dice(uint8_t GPIO_BUTTON_PIN, button_t button_type)
 {
     gpio_config_t io_conf = {
         .pin_bit_mask = 1 << GPIO_BUTTON_PIN,
@@ -36,23 +29,22 @@ return_t configure_button_for_rolling_dice(uint8_t GPIO_BUTTON_PIN)
     };
     gpio_config(&io_conf);
 
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(GPIO_BUTTON_PIN, button_for_rolling_dice_isr_handler, NULL);
+    if (isr_installed == false)
+    {
+        gpio_install_isr_service(0);
+        isr_installed = true;
+    }
+
+    if (button_type == button_for_rolling_dice)
+    {
+        gpio_isr_handler_add(GPIO_BUTTON_PIN, button_for_rolling_dice_isr_handler, NULL);
+    }
+    else if (button_type == button_to_cheat)
+    {
+        gpio_isr_handler_add(GPIO_BUTTON_PIN, button_for_cheating_isr_handler, NULL);
+    }
     return success;
 }
 
-return_t configure_button_for_cheating(uint8_t GPIO_BUTTON_PIN)
-{
-    gpio_config_t io_conf = {
-        .pin_bit_mask = 1 << GPIO_BUTTON_PIN,
-        .intr_type = GPIO_INTR_NEGEDGE,
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    };
-    gpio_config(&io_conf);
-
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(GPIO_BUTTON_PIN, button_for_cheating_isr_handler, NULL);
-    return success;
-}
+__attribute__((weak)) void rolling_button_callback(void) {}
+__attribute__((weak)) void cheating_button_callback(void) {}

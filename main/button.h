@@ -6,10 +6,12 @@
 
 #include "return_type.h"
 
-bool g_roll_dice = false;
-bool g_cheat = false;
+typedef enum
+{
+    button_for_rolling_dice,
+    button_to_cheat,
+} button_t;
 
-return_t configure_button_for_rolling_dice(uint8_t GPIO_BUTTON_PIN);
-return_t configure_button_for_cheating(uint8_t GPIO_BUTTON_PIN);
+return_t configure_button_for_led_dice(uint8_t GPIO_BUTTON_PIN, button_t button_type);
 
 #endif

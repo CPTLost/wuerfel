@@ -1,30 +1,14 @@
 #include "led_dice.h"
 
 #include "led_strip.h"
-// #include "inttypes.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
-// #include "return_type.h"
 #include "rng.h"
 #include "button.h"
-
-// #define RNG_DATA_REG 0x600260B0
-// #define LOW_POWER_MANAGEMENT_BASE 0x60008000
-// #define RTC_CNTL_CLK_CONF_REG (LOW_POWER_MANAGEMENT_BASE + 0x0070)
-// #define RTC_CNTL_DIG_FOSC_EN 10 // This bit in the RTC_CNTL_CLK_CONF_REG needs to be enabled for RTC CLK, to get RNG
-
-// volatile uint32_t *RNG_DATA_REG_p = (uint32_t *)RNG_DATA_REG;
-
-// static return_t init_RNG()
-// {
-//     uint32_t *RTC_CNTL_CLK_CONF_REG_p = (uint32_t *)RTC_CNTL_CLK_CONF_REG;
-//     *RTC_CNTL_CLK_CONF_REG_p |= (uint32_t)(1 << RTC_CNTL_DIG_FOSC_EN);
-//     return success;
-// }
 
 // This Code is primarily made for Patricks Dev Board
 
@@ -32,9 +16,18 @@
 #define MAX_LEDS 25
 
 bool g_leds_configured = false;
-// bool g_test = false;
 
-// static const char *TAG = "LED_CONFIG";
+static bool g_roll_dice = false;
+static bool g_cheat = false;
+
+void rolling_button_callback(void)
+{
+    g_roll_dice = true;
+}
+void cheating_button_callback(void)
+{
+    g_cheat = true;
+}
 
 static led_strip_handle_t led_strip;
 
@@ -70,91 +63,47 @@ uint8_t dice_number_pixel_indices[6][MAX_LEDS] = {
      0, 1, 0, 1, 0,
      0, 0, 0, 0, 0}};
 
-return_t set_led() // Dice Funktion hier Implementieren!!!!!!!!!!!!!!!!
+return_t roll_dice()
 {
-    uint32_t delay = 1000;
-
-    for (int i = 0; i < 6; i++)
+    if (g_roll_dice == false)
     {
-        led_strip_clear(led_strip);
-        for (int j = 0; j < 25; j++)
-        {
-            if (dice_number_pixel_indices[i][j])
-            {
-                led_strip_set_pixel(led_strip, j, 25, 25, 25);
-            }
-            if (g_roll_dice == true)
-            {
-                uint8_t random_number = get_rng_value() % 5;
-                led_strip_set_pixel(led_strip, random_number, 0, 25, 0);
-                led_strip_refresh(led_strip);
-                g_roll_dice = false;
-            }
-            if (g_cheat == true)
-            {
-                uint8_t random_number = 20 + get_rng_value() % 5;
-                led_strip_set_pixel(led_strip, random_number, 25, 0, 0);
-                led_strip_refresh(led_strip);
-                g_cheat = false;
-            }
-        }
-        led_strip_refresh(led_strip);
-        vTaskDelay(delay / portTICK_PERIOD_MS);
+        return rolling_dice_button_not_pressed;
     }
 
-    // while (1)
-    // {
-    //     uint8_t random_number = get_rng_value() % 6;
-    //     led_strip_clear(led_strip);
-    //     for (int j = 0; j < 25; j++)
-    //     {
-    //         if (dice_number_pixel_indices[random_number][j])
-    //         {
-    //             led_strip_set_pixel(led_strip, j, r, g, b);
-    //         }
-    //     }
-    //     led_strip_refresh(led_strip);
-    //     vTaskDelay(delay / portTICK_PERIOD_MS);
-    // }
+    uint32_t delay = 50;
+    uint8_t dice_loops = 3;
+    for (uint8_t k = 0; k < dice_loops; k++)
+    {
+        for (int i = 0; i < ((k == dice_loops - 1 && g_cheat == false) ? (get_rng_value() % 6) : (6)); i++)
+        {
 
+            led_strip_clear(led_strip);
+            for (int j = 0; j < 25; j++)
+            {
+                if (dice_number_pixel_indices[i][j])
+                {
+                    led_strip_set_pixel(led_strip, j, 25, 25, 25);
+                }
+            }
+            led_strip_refresh(led_strip);
+            vTaskDelay(delay / portTICK_PERIOD_MS);
+            delay += 20;
+        }
+    }
+    g_roll_dice = false;
+    if (g_cheat == true)
+    {
+        g_cheat = false;
+    }
     return success;
 }
 
-// #define LEFT_BTN_GPIO 9
-// #define RIGHT_BTN_GPIO 2
-
-// static void left_btn_isr_handler()
-// {
-//     ESP_EARLY_LOGE(TAG, "\nISR\n");
-//     g_test = true;
-//     ESP_EARLY_LOGE(TAG, "\nISR Finished\n");
-// }
-
-// static void configure_left_button()
-// {
-//     gpio_config_t io_conf = {
-//         .pin_bit_mask = 1 << LEFT_BTN_GPIO,
-//         .intr_type = GPIO_INTR_NEGEDGE,
-//         .mode = GPIO_MODE_INPUT,
-//         .pull_up_en = GPIO_PULLUP_ENABLE,
-//         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-//     };
-//     gpio_config(&io_conf);
-
-//     gpio_install_isr_service(0);
-//     gpio_isr_handler_add(LEFT_BTN_GPIO, left_btn_isr_handler, NULL);
-// }
-
 return_t init_dice()
 {
-    // if (!g_leds_configured)
-    // {
     init_RNG();
-    configure_button_for_rolling_dice(9);
-    configure_button_for_cheating(2);
+    configure_button_for_led_dice(9, button_for_rolling_dice);
+    configure_button_for_led_dice(2, button_to_cheat);
     g_leds_configured = true;
-
-    // led_strip_handle_t led_strip;
 
     /* LED strip initialization with the GPIO and pixels number*/
     led_strip_config_t strip_config = {
@@ -173,13 +122,4 @@ return_t init_dice()
 
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
     return success;
-    // }
-    // else
-    // {
-    //     ESP_LOGE(TAG, "LEDs already configured!");
-    //     return already_configured;
-    // }
 }
-
-// esp_timer_get_time()
-// esp_timer.h

@@ -5,6 +5,6 @@
 #include "return_type.h"
 
 return_t init_dice();
-return_t set_led();
+return_t roll_dice();
 
 #endif
